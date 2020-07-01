@@ -75,6 +75,11 @@ const (
 	BitrateMaximum = C.gopus_bitrate_max
 )
 
+// errors
+var (
+	ErrNotMultipleOfChannelCount = errors.New("output array length is not a multiple of channel count")
+)
+
 type Encoder struct {
 	data     []byte
 	cEncoder *C.struct_OpusEncoder
@@ -157,14 +162,18 @@ func NewDecoder(sampleRate, channels int) (*Decoder, error) {
 	return decoder, nil
 }
 
-func (d *Decoder) Decode(data []byte, frameSize int, fec bool) ([]int16, error) {
+func (d *Decoder) Decode(data []byte, output []int16, fec bool) (int, error) {
 	var dataPtr *C.uchar
 	if len(data) > 0 {
 		dataPtr = (*C.uchar)(unsafe.Pointer(&data[0]))
 	}
 	dataLen := C.opus_int32(len(data))
 
-	output := make([]int16, d.channels*frameSize)
+	if len(output)%d.channels != 0 {
+		return 0, ErrNotMultipleOfChannelCount
+	}
+	frameSize := len(output) / d.channels
+
 	outputPtr := (*C.opus_int16)(unsafe.Pointer(&output[0]))
 
 	var cFec C.int
@@ -178,9 +187,10 @@ func (d *Decoder) Decode(data []byte, frameSize int, fec bool) ([]int16, error) 
 	ret := int(cRet)
 
 	if ret < 0 {
-		return nil, getErr(cRet)
+		return 0, getErr(cRet)
 	}
-	return output[:ret*d.channels], nil
+
+	return ret * d.channels, nil
 }
 
 func (d *Decoder) ResetState() {
