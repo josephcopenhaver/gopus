@@ -1,6 +1,6 @@
 // +build amd64,cgo 386,cgo
 
-package gopus // import "layeh.com/gopus"
+package gopus // import "josephcopenhaver/gopus"
 
 // #cgo linux darwin freebsd LDFLAGS: -lm
 //
@@ -241,19 +241,19 @@ func NewEncoder(sampleRate, channels int, application Application) (*Encoder, er
 	return encoder, nil
 }
 
-func (e *Encoder) Encode(pcm []int16, frameSize, maxDataBytes int) ([]byte, error) {
-	pcmPtr := (*C.opus_int16)(unsafe.Pointer(&pcm[0]))
+func (e *Encoder) Encode(pcm []int16, frameSize int, data []byte) (int, error) {
 
-	data := make([]byte, maxDataBytes)
+	pcmPtr := (*C.opus_int16)(unsafe.Pointer(&pcm[0]))
 	dataPtr := (*C.uchar)(unsafe.Pointer(&data[0]))
 
 	encodedC := C.opus_encode(e.cEncoder, pcmPtr, C.int(frameSize), dataPtr, C.opus_int32(len(data)))
 	encoded := int(encodedC)
 
 	if encoded < 0 {
-		return nil, getErr(C.int(encodedC))
+		return 0, getErr(C.int(encodedC))
 	}
-	return data[0:encoded], nil
+
+	return encoded, nil
 }
 
 func (e *Encoder) SetVbr(vbr bool) {
